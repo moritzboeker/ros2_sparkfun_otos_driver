@@ -5,6 +5,9 @@
 [![Rolling](https://github.com/moritzboeker/ros2_sparkfun_otos_driver/actions/workflows/rolling.yml/badge.svg?branch=main)](https://github.com/moritzboeker/ros2_sparkfun_otos_driver/actions/workflows/rolling.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
+
+![A view of odom and base_link tf with Lichtblick](./docs/01_tf_view.png)
+
 ROS 2 driver for the [SparkFun Optical Tracking Odometry Sensor (OTOS)](https://www.sparkfun.com/products/24904),
 based on the PAA5160E1 optical tracking chip and an LSM6DSO IMU.
 It reads the sensor over I2C using SparkFun's
