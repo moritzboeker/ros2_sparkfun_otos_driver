@@ -60,6 +60,30 @@ def drifted_covariance(base_variance, drift_per_meter, distance):
           for base, drift in zip(base_variance, drift_per_meter)))
 
 
+def body_velocity_from_odom(velocity, yaw):
+    """
+    Express an odom-frame velocity in the robot body frame.
+
+    The OTOS reports velocity in the frame it tracks in, which is fixed at
+    resetTracking(), while nav_msgs/Odometry defines twist in child_frame_id
+    (base_link here). Re-expressing a vector in axes that are themselves
+    rotated by +yaw transforms its components by the inverse rotation, R(-yaw):
+
+        | cos(yaw)  sin(yaw)|
+        |-sin(yaw)  cos(yaw)|
+
+    The velocity itself is unchanged; only the axes it is measured against
+    rotate. A rotation about z does not alter the yaw rate, so it passes
+    through untouched.
+    """
+    cos_yaw = math.cos(yaw)
+    sin_yaw = math.sin(yaw)
+    return qwiic_otos.Pose2D(
+        cos_yaw * velocity.x + sin_yaw * velocity.y,
+        -sin_yaw * velocity.x + cos_yaw * velocity.y,
+        velocity.h)
+
+
 class OtosNode(Node):
     """Publish odometry from the SparkFun OTOS and offer runtime services."""
 
@@ -194,6 +218,7 @@ class OtosNode(Node):
 
     def publish_odom(self, stamp, pose, vel):
         """Publish a nav_msgs/Odometry message for the given readings."""
+        vel_body = body_velocity_from_odom(vel, pose.h)
         msg = Odometry()
         msg.header.stamp = stamp
         msg.header.frame_id = self.frame_id
@@ -203,9 +228,9 @@ class OtosNode(Node):
         msg.pose.pose.orientation = quaternion_from_yaw(pose.h)
         msg.pose.covariance = drifted_covariance(
             self.pose_variance, self.pose_drift, self.distance_traveled)
-        msg.twist.twist.linear.x = vel.x
-        msg.twist.twist.linear.y = vel.y
-        msg.twist.twist.angular.z = vel.h
+        msg.twist.twist.linear.x = vel_body.x
+        msg.twist.twist.linear.y = vel_body.y
+        msg.twist.twist.angular.z = vel_body.h
         msg.twist.covariance = self.twist_covariance
         self.odom_pub.publish(msg)
 

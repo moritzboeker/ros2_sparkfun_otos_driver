@@ -4,10 +4,13 @@
 
 import math
 
+import qwiic_otos
+
 from sparkfun_otos_driver.otos_node import (
     diagonal_covariance,
     drifted_covariance,
     quaternion_from_yaw,
+    body_velocity_from_odom,
     UNMEASURED_VARIANCE,
 )
 
@@ -61,3 +64,33 @@ def test_drifted_covariance_grows_quadratically_with_distance():
     assert math.isclose(cov[0], 1e-3 + (0.005 * 10.0) ** 2)
     assert math.isclose(cov[7], 1e-3 + (0.01 * 10.0) ** 2)
     assert math.isclose(cov[35], 1e-3 + (0.02 * 10.0) ** 2)
+
+
+def test_body_velocity_identity_at_zero_heading():
+    """With the robot facing along odom x, body and odom frames coincide."""
+    velocity = qwiic_otos.Pose2D(0.5, 0.2, 0.0)
+    out = body_velocity_from_odom(velocity, 0.0)
+    assert math.isclose(out.x, velocity.x, abs_tol=1e-9)
+    assert math.isclose(out.y, velocity.y, abs_tol=1e-9)
+
+
+def test_body_velocity_quarter_turn_puts_speed_in_x():
+    """Facing odom +y, odom-frame (0, V) is forward motion: body (V, 0)."""
+    velocity = qwiic_otos.Pose2D(0.0, 0.33, 0.0)
+    out = body_velocity_from_odom(velocity, math.pi / 2.0)
+    assert math.isclose(out.x, velocity.y, abs_tol=1e-9)
+    assert math.isclose(out.y, -velocity.x, abs_tol=1e-9)
+
+
+def test_body_velocity_does_not_alias_its_input():
+    """The input velocity must be left untouched, or x leaks into y."""
+    velocity = qwiic_otos.Pose2D(0.0, 0.33, 0.0)
+    body_velocity_from_odom(velocity, math.pi / 2.0)
+    assert (velocity.x, velocity.y) == (0.0, 0.33)
+
+
+def test_body_velocity_preserves_yaw_rate():
+    """A rotation about z does not change the yaw rate, but it must survive."""
+    velocity = qwiic_otos.Pose2D(0.4, -0.1, 0.75)
+    out = body_velocity_from_odom(velocity, 1.2)
+    assert out.h == velocity.h

@@ -5,6 +5,9 @@
 [![Rolling](https://github.com/moritzboeker/ros2_sparkfun_otos_driver/actions/workflows/rolling.yml/badge.svg?branch=main)](https://github.com/moritzboeker/ros2_sparkfun_otos_driver/actions/workflows/rolling.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
+
+![A view of odom and base_link tf with Lichtblick](./docs/01_tf_view.png)
+
 ROS 2 driver for the [SparkFun Optical Tracking Odometry Sensor (OTOS)](https://www.sparkfun.com/products/24904),
 based on the PAA5160E1 optical tracking chip and an LSM6DSO IMU.
 It reads the sensor over I2C using SparkFun's
@@ -17,6 +20,7 @@ Supported distros: **Humble**, **Jazzy**, **Rolling** (pure-Python, tested in CI
 ## Features
 
 - Publishes planar pose and twist with configurable covariance on `odom`
+- The twist's velocities are correctly transformed into the robot's body frame and not the sensor's tracking frame
 - Broadcasts the odometry TF (can be disabled for sensor-fusion setups)
 - Sensor mounting offset compensated in the sensor firmware (`offset.*` parameters)
 - Per-robot linear/angular calibration scalars as parameters
@@ -134,6 +138,36 @@ The drift default of `5e-3` matches SparkFun's typical accuracy spec of 0.5 %
 of distance traveled; calling `~/reset_tracking` resets the accumulated
 distance along with the pose. Twist covariance is static (`twist_variance`),
 since velocity error does not accumulate.
+
+## Testing
+
+The unit tests are hardware-independent: they exercise the pure helper
+functions, so no OTOS needs to be connected.
+
+```bash
+# just the unit tests, straight from source
+cd ~/ros2_ws/src/ros2_sparkfun_otos_driver/sparkfun_otos_driver
+python3 -m pytest test/test_otos_node.py -q
+
+# everything CI runs: unit tests plus flake8, pep257 and copyright checks
+cd ~/ros2_ws
+colcon test --packages-select sparkfun_otos_driver
+colcon test-result --verbose
+```
+
+Both need ROS 2 sourced and `qwiic_otos` importable. If pytest fails while
+collecting with a `ModuleNotFoundError`, point `PYTHONPATH` at whatever
+provides them — the package directory itself, and wherever
+`sparkfun-qwiic-otos` is installed:
+
+```bash
+export PYTHONPATH="$PWD:/path/to/qwiic_otos_py:$PYTHONPATH"
+```
+
+If you work inside a Python virtualenv, deactivate it first. colcon and the
+ROS message generators use the system interpreter that ROS 2 was built
+against, and an active venv shadows it. The usual symptom is CMake reporting a
+missing NumPy or `empy` that apt insists is already installed.
 
 ## License
 
